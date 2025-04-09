@@ -35,9 +35,14 @@ const TEST_SUFFIX = Modes.test ? '_test' : '';
 const PREMIUM_SUFFIX = '_premium';
 const RETRY_TIMEOUT_CLIENT = 3000;
 const RETRY_TIMEOUT_DOWNLOAD = 3000;
+const LOCAL_DOMAIN = 'localhost:8765'
 
 export function getTelegramConnectionSuffix(connectionType: ConnectionType) {
   return connectionType === 'client' ? '' : '-1';
+}
+
+function currentDomain() {
+  return location.host;
 }
 
 export function constructTelegramWebSocketUrl(dcId: DcId, connectionType: ConnectionType, premium?: boolean) {
@@ -47,27 +52,12 @@ export function constructTelegramWebSocketUrl(dcId: DcId, connectionType: Connec
 
   const suffix = getTelegramConnectionSuffix(connectionType);
   const path = connectionType !== 'client' ? 'apiws' + TEST_SUFFIX + (premium ? PREMIUM_SUFFIX : '') : ('apiws' + TEST_SUFFIX);
-  const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
-
+  const chosenServer = `ws://${currentDomain()}/tg/wss/${dcId}${suffix}/${path}`;
   return chosenServer;
 }
 
 export class DcConfigurator {
   private sslSubdomains = ['pluto', 'venus', 'aurora', 'vesta', 'flora'];
-
-  private dcOptions = Modes.test ?
-    [
-      {id: 1, host: '149.154.175.10',  port: 80},
-      {id: 2, host: '149.154.167.40',  port: 80},
-      {id: 3, host: '149.154.175.117', port: 80}
-    ] :
-    [
-      {id: 1, host: '149.154.175.50',  port: 80},
-      {id: 2, host: '149.154.167.50',  port: 80},
-      {id: 3, host: '149.154.175.100', port: 80},
-      {id: 4, host: '149.154.167.91',  port: 80},
-      {id: 5, host: '149.154.171.5',   port: 80}
-    ];
 
   public chosenServers: Servers = {} as any;
 
@@ -96,20 +86,15 @@ export class DcConfigurator {
       return;
     }
 
-    let chosenServer: string;
+    let protocol = 'http'
     if(Modes.ssl || !Modes.http) {
-      const suffix = getTelegramConnectionSuffix(connectionType);
-      const subdomain = this.sslSubdomains[dcId - 1] + suffix;
-      const path = Modes.test ? 'apiw_test1' : 'apiw1';
-      chosenServer = 'https://' + subdomain + '.web.telegram.org/' + path;
-    } else {
-      for(const dcOption of this.dcOptions) {
-        if(dcOption.id === dcId) {
-          chosenServer = 'http://' + dcOption.host + (dcOption.port !== 80 ? ':' + dcOption.port : '') + '/apiw1';
-          break;
-        }
-      }
+      protocol = 'https'
     }
+
+    const suffix = getTelegramConnectionSuffix(connectionType);
+    const subdomain = this.sslSubdomains[dcId - 1] + suffix;
+    const path = Modes.test ? 'apiw_test1' : 'apiw1';
+    const chosenServer = `${protocol}://${currentDomain()}/tg/http/${subdomain}/${path}`;
 
     const logSuffix = connectionType === 'upload' ? '-U' : connectionType === 'download' ? '-D' : '';
     return new HTTP(dcId, chosenServer, logSuffix);
